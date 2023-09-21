@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Candidate Evaluation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #007BFF;
+        }
+
+        form {
+            text-align: left;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        input[type="text"], input[type="email"], textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .file-input-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .decision-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .accept-button {
+            background-color: #5cb85c;
+        }
+
+        .reject-button {
+            background-color: #d9534f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Job Candidate Evaluation</h1>
+        <form id="candidateForm" action="../HRMS/views/employee/addReferral.html" method="POST" enctype="multipart/form-data">
+            <input type="hidden" id="candidateId" name="candidateId" value="">
+            
+            <label for="candidateName">Candidate Name:</label>
+            <input type="text" id="candidateName" name="candidateName" required>
+
+            <label for="appliedPosition">Applied Position:</label>
+            <input type="text" id="appliedPosition" name="appliedPosition" required>
+
+            <label for="email">Email:</label>
+            <input type="email" id="candidateEmail" name="candidateEmail" required>
+
+            <label for="contact">Contact:</label>
+            <input type="text" id="contact" name="contact" required>
+
+            <div class="file-input-container">
+                <label for="resume">Resume (PDF only):</label>
+                <input type="file" id="resume" name="resume" accept=".pdf" required>
+            </div>
+
+            <input type="hidden" id="githubToken" name="githubToken" value="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">
+
+
+            <button type="button" id="submitForm">Submit</button>
+        </form>
+
+    </div>
+
+    <!-- <script src="https://cdn.jsdelivr.net/npm/octokit@2.3.0/dist/octokit.min.js"></script> -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/js/all.min.js"></script> -->
+
+
+    <script>
+        document.getElementById('submitForm').addEventListener('click', async function () {
+            const candidateId = generateCandidateId();
+            const candidateName = document.getElementById('candidateName').value;
+            const appliedPosition = document.getElementById('appliedPosition').value;
+            const candidateEmail = document.getElementById('candidateEmail').value;
+            const contact = document.getElementById('contact').value;
+            const resumeFile = document.getElementById('resume').files[0];
+            const githubToken = document.getElementById('githubToken').value; // Get GitHub access token
+
+
+            // Check if all required fields are filled
+            if (!candidateName || !appliedPosition || !candidateEmail || !contact || !resumeFile) {
+                alert('Please fill in all required fields.');
+                return;
+            }
+
+           // Upload the resume file to GitHub using the GitHub API
+    const githubUploadUrl = 'https://api.github.com/repos/Nency-Ravaliya/resume/contents/' + candidateName + '_resume.pdf'; // Replace YOUR_USERNAME with your GitHub username
+
+const fileReader = new FileReader();
+fileReader.onload = async function () {
+    const fileContent = fileReader.result.split(',')[1]; // Get the base64-encoded file content
+
+    // Create a request to upload the file to GitHub
+    const githubUploadRequest = {
+        message: 'Upload resume',
+        content: fileContent,
+        branch: 'main',
+    };
+
+    const githubUploadResponse = await fetch(githubUploadUrl, {
+        method: 'PUT',
+        headers: {
+            Authorization: 'token ' + githubToken,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(githubUploadRequest),
+    });
+
+    if (githubUploadResponse.status === 201) {
+        // File uploaded successfully, get the URL of the uploaded file
+        const githubFileUrl = JSON.parse(await githubUploadResponse.text()).content.download_url;
+
+        // Now, you can send candidate data including the GitHub file URL to evaluate.html
+        const candidateData = {
+            candidateId,
+            candidateName,
+            appliedPosition,
+            candidateEmail,
+            contact,
+            resumeUrl: githubFileUrl,
+        };
+
+        // localStorage.setItem('candidateData', JSON.stringify(candidateData));
+
+         // Store candidate data in localStorage
+         const candidates = JSON.parse(localStorage.getItem('candidates')) || [];
+            candidates.push(candidateData);
+            localStorage.setItem('candidates', JSON.stringify(candidates));
+
+            
+        document.getElementById('candidateForm').reset(); // Clear the form fields after successful submission
+        alert('Data sent successfully!');
+
+        window.location.href = 'index.html';
+    } else {
+        alert('Error uploading file to GitHub. Please try again.');
+    }
+};
+
+fileReader.readAsDataURL(resumeFile);
+});
+
+        // Function to generate a unique candidateId (you can implement your logic here)
+        function generateCandidateId() {
+            // For simplicity, you can use a timestamp as the candidateId
+            const timestamp = Date.now();
+            return `${timestamp}`;
+        }
+    </script>
+</body>
+</html>
